@@ -119,9 +119,9 @@ def venues():
 
       venues_data = {
         'id': venue_data.id,
-        'name': venue_data.name
+        'name': venue_data.name,
                        
-        #'num_upcoming_shows': len(upcoming_shows(shows))
+        'num_upcoming_shows': len(upcoming_shows(shows))
       }
       venue['venues'].append(venues_data)
       data.append(venue)
@@ -167,10 +167,10 @@ def show_venue(venue_id):
       "seeking_talent": venue.seeking_talent,
       "seeking_description": venue.seeking_description,
       "image_link": venue.image_link,
-      #"past_shows": past_shows(shows),
-      #"upcoming_shows": upcoming_shows(shows),
-      #"past_shows_count": len(past_shows(shows)),
-      #"upcoming_shows_count": len(upcoming_shows(shows))
+      "past_shows": past_shows(shows),
+      "upcoming_shows": upcoming_shows(shows),
+      "past_shows_count": len(past_shows(shows)),
+      "upcoming_shows_count": len(upcoming_shows(shows))
   }
 
   return render_template('pages/show_venue.html', venue=data)
@@ -203,11 +203,11 @@ def create_venue_submission():
     )
     db.session.add(venue)
     db.session.commit()
-    flash('Venue ' + venue.name + ' was successfully listed!')
+    flash('Venue created' + venue.name )
     return render_template('pages/home.html')
   except Exception as e:
     print(f'Error ==> {e}')
-    flash('An error occurred. Venue ' + request.form['name'] + ' could not be listed.')
+    flash('ERROR. Venue ' + request.form['name'] + ' could not be created.')
     db.session.rollback()
     return render_template('pages/home.html')
   finally:
@@ -224,7 +224,7 @@ def delete_venue(venue_id):
     return render_template('pages/venues.html')
   except Exception as e:
     print(f'Error ==> {e}')
-    flash('An error occurred. Venue could not be deleted.')
+    flash('ERROR. Impossible to delete the venue.')
     db.session.rollback()
     abort(400)
   finally:
@@ -268,7 +268,7 @@ def show_artist(artist_id):
     data = {
         "id": artist.id,
         "name": artist.name,
-        "genres": artist.genres,
+        "genres": artist.genres.strip("{").strip("}").split(","),
         "city": artist.city,
         "state": artist.state,
         "phone": artist.phone,
@@ -277,10 +277,10 @@ def show_artist(artist_id):
         "seeking_venue": artist.seeking_venue,
         "seeking_description": artist.seeking_description,
         "image_link": artist.image_link,
-        #"past_shows": past_shows(shows),
-        #"upcoming_shows": upcoming_shows(shows),
-        #"past_shows_count": len(past_shows(shows)),
-        #"upcoming_shows_count": len(upcoming_shows(shows))
+        "past_shows": past_shows(shows),
+        "upcoming_shows": upcoming_shows(shows),
+        "past_shows_count": len(past_shows(shows)),
+        "upcoming_shows_count": len(upcoming_shows(shows))
     }
     return render_template('pages/show_artist.html', artist=data)
 
@@ -312,7 +312,7 @@ def edit_artist_submission(artist_id):
       return redirect(url_for('show_artist', artist_id=artist_id))
   except Exception as e:
       print(f'Error ==> {e}')
-      flash('An error occurred. Venue ' + request.form['name'] + ' could not be listed.')
+      flash('ERROR. Venue ' + request.form['name'] + ' could not be created.')
       db.session.rollback()
       return redirect(url_for('show_artist', artist_id=artist_id))
   finally:
@@ -381,11 +381,10 @@ def create_artist_submission():
       )
       db.session.add(artist)
       db.session.commit()
-      # on successful db insert, flash success
-      flash('Artist ' + artist.name + ' was successfully listed!')
+      flash('Artist ' + artist.name + ' was created!')
       return render_template('pages/home.html')
   except Exception as e:
-      flash(f"An error occurred. Artist {request.form['name']} could not be listed. Error: {e}")
+      flash(f"ERROR. Artist {request.form['name']} could not be created. Error: {e}")
       db.session.rollback()
       return render_template('pages/home.html')
   finally:
@@ -413,7 +412,6 @@ def shows():
 
 @app.route('/shows/create')
 def create_shows():
-  # renders form. do not touch.
   form = ShowForm()
   return render_template('forms/new_show.html', form=form)
 
@@ -428,15 +426,41 @@ def create_show_submission():
       )
       db.session.add(show)
       db.session.commit()
-      flash('Show was successfully listed!')
+      flash('Show was created!')
       return render_template('pages/home.html')
   except Exception as e:
-      flash(f'An error occurred. Show could not be listed. Error: {e}')
+      flash(f'ERROR. Show could not be created. Error: {e}')
       db.session.rollback()
       return render_template('forms/new_show.html', form=form)
   finally:
       db.session.close()
 
+def upcoming_shows(shows):
+    upcoming = []
+
+    for show in shows:
+        if show.start_time > datetime.now():
+            upcoming.append({
+                "artist_id": show.artist_id,
+                "artist_name": Artist.query.filter_by(id=show.artist_id).first().name,
+                "artist_image_link": Artist.query.filter_by(id=show.artist_id).first().image_link,
+                "start_time": format_datetime(str(show.start_time))
+            })
+    return upcoming
+
+
+def past_shows(shows):
+    past = []
+
+    for show in shows:
+        if show.start_time < datetime.now():
+            past.append({
+                "artist_id": show.artist_id,
+                "artist_name": Artist.query.filter_by(id=show.artist_id).first().name,
+                "artist_image_link": Artist.query.filter_by(id=show.artist_id).first().image_link,
+                "start_time": format_datetime(str(show.start_time))
+            })
+    return past
 
 @app.errorhandler(404)
 def not_found_error(error):
